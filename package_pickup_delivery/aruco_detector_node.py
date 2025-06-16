@@ -6,12 +6,14 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'libs'))
 
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
+from rclpy.duration import Duration
 
 from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import PoseStamped, Vector3
 from std_msgs.msg import Int32
-from cv_bridge import CvBridge
+from visualization_msgs.msg import Marker
 
+from cv_bridge import CvBridge
 import cv2
 import cv2.aruco as aruco
 import numpy as np
@@ -22,7 +24,7 @@ from tf2_ros import TransformBroadcaster, TransformStamped
 class ArucoDetector(Node):
     """
     Subscribes to an image + camera_info, detects ArUco markers,
-    publishes PoseStamped + Int32 ID, and broadcasts TF frames.
+    publishes PoseStamped + Int32 ID, spherical markers, and broadcasts TF frames.
     """
 
     def __init__(self):
@@ -50,11 +52,11 @@ class ArucoDetector(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
 
         # ---- publishers ----
-        self.pose_pub = self.create_publisher(PoseStamped, '/aruco/pose', 10)
-        self.id_pub   = self.create_publisher(Int32,       '/aruco/id',   10)
+        self.pose_pub    = self.create_publisher(PoseStamped, '/aruco/pose', 10)
+        self.id_pub      = self.create_publisher(Int32,       '/aruco/id',   10)
+        self.marker_pub  = self.create_publisher(Marker,      '/aruco/marker', 10)
 
         # ---- subscriptions ----
-        # ← use BEST_EFFORT to match the camera QoS
         self.info_sub = self.create_subscription(
             CameraInfo, self.camera_info_topic,
             self._on_camera_info,
@@ -142,6 +144,24 @@ class ArucoDetector(Node):
             )
             tf.transform.rotation = ps.pose.orientation
             self.tf_broadcaster.sendTransform(tf)
+
+            # Publish Sphere Marker
+            marker = Marker()
+            marker.header = ps.header
+            marker.ns = "aruco"
+            marker.id = int(mid)
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
+            marker.pose = ps.pose
+            marker.scale.x = 0.05
+            marker.scale.y = 0.05
+            marker.scale.z = 0.05
+            marker.color.r = 1.0
+            marker.color.g = 0.0
+            marker.color.b = 0.0
+            marker.color.a = 1.0
+            marker.lifetime = Duration(seconds=0).to_msg()  # persistent
+            self.marker_pub.publish(marker)
 
 
 def main(args=None):
