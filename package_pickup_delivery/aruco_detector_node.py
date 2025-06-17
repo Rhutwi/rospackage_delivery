@@ -115,7 +115,10 @@ class ArucoDetector(Node):
             # Build PoseStamped
             ps = PoseStamped()
             ps.header = msg.header
-            ps.header.frame_id = 'camera_link'
+            # ps.header.frame_id = 'camera_link'
+            ps.header.frame_id = 'camera_rgb_optical_frame'  # <- FIXED FRAME
+
+
             t = tvecs[0][0]
             ps.pose.position.x = float(t[0])
             ps.pose.position.y = float(t[1])
@@ -153,9 +156,10 @@ class ArucoDetector(Node):
             marker.type = Marker.SPHERE
             marker.action = Marker.ADD
             marker.pose = ps.pose
-            marker.scale.x = 0.05
-            marker.scale.y = 0.05
-            marker.scale.z = 0.05
+            marker.scale.x = marker.scale.y = marker.scale.z = 0.10  # ← Updated to 10cm sphere
+            # marker.scale.x = 0.05
+            # marker.scale.y = 0.05
+            # marker.scale.z = 0.05
             marker.color.r = 1.0
             marker.color.g = 0.0
             marker.color.b = 0.0
