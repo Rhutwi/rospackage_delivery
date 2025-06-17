@@ -1,4 +1,5 @@
 import rclpy
+from std_msgs.msg import Int32
 from rclpy.node import Node
 from std_msgs.msg import String, Bool
 from geometry_msgs.msg import PoseStamped
@@ -11,8 +12,9 @@ class StatusTracker(Node):
 
         # Subscribers
         self.create_subscription(String, '/task_status', self.task_status_callback, 10)
-        self.create_subscription(PoseStamped, '/marker_global_pose', self.marker_callback, 10)
+        self.create_subscription(PoseStamped, '/aruco/map_pose', self.marker_callback, 10)
         self.create_subscription(Bool, '/pointer/aligned', self.pointer_callback, 10)
+        self.create_subscription(Int32, '/aruco/id', self.id_callback, 10)
 
         # Publishers
         self.status_pub = self.create_publisher(String, '/package_status', 10)
@@ -47,13 +49,18 @@ class StatusTracker(Node):
             self.expected_marker_id = None
             self.expected_task_type = None
 
-    def marker_callback(self, msg):
-        try:
-            marker_id = int(msg.header.frame_id.replace('marker_', ''))
-            self.last_seen_marker_id = marker_id
-            self.current_marker_pose = msg.pose
-        except Exception as e:
-            self.get_logger().warn(f"Could not parse marker ID from: {msg.header.frame_id}")
+    def id_callback(self, msg: Int32):
+        self._last_aruco_id = msg.data
+
+    def marker_callback(self, msg: PoseStamped):
+        # Only process if we have just seen an ID
+        if self._last_aruco_id is None:
+            return
+        self.last_seen_marker_id = self._last_aruco_id
+        self.current_marker_pose   = msg.pose
+        # reset for next
+        self._last_aruco_id = None
+
 
     def pointer_callback(self, msg):
         self.get_logger().info(f"[DEBUG] pointer/aligned = {msg.data}, expected_marker_id = {self.expected_marker_id}, last_seen = {self.last_seen_marker_id}")
