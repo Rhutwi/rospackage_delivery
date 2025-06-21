@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 import numpy as np
@@ -10,42 +10,25 @@ from action_msgs.msg import GoalStatus
 from collections import deque
 from std_msgs.msg import String
 
-
 class AutonomousExplorer(Node):
     def __init__(self):
         super().__init__('autonomous_explorer')
         self.get_logger().info("🧽 Autonomous Explorer Node Activated")
         self.navigation_complete = False
-        self.nav_start_time = None
-        self.nav_timeout = 15.0
         self.nav_goal_handle = None
-
         self.marker_target_set = False
-        self.target_marker_pose = None
-
-        self.goal_input_sub = self.create_subscription(
-            PoseStamped,
-            '/set_goal',
-            self.marker_input_callback,
-            10
-        )
-
-        self.map_feed_sub = self.create_subscription(
-            OccupancyGrid,
-            '/map',
-            self.process_map,
-            10
-        )
-
-        self.marker_engage_pub = self.create_publisher(String, '/start_marker_following', 10)
-        self.nav_action_client = ActionClient(self, NavigateToPose, '/navigate_to_pose')
-        self.velocity_pub = self.create_publisher(Twist, '/cmd_vel', 10)
-
         self.map_matrix = None
         self.map_metadata = None
         self.unsuccessful_goals = set()
         self.active_goal = None
-        self.marker_target_set = False
+
+        self.goal_input_sub = self.create_subscription(PoseStamped, '/set_goal', self.marker_input_callback, 10)
+        self.map_feed_sub = self.create_subscription(OccupancyGrid, '/map', self.process_map, 10)
+        self.servo_done_sub = self.create_subscription(String, '/visual_servo_done', self.visual_servo_complete_callback, 10)
+
+        self.marker_engage_pub = self.create_publisher(String, '/start_marker_following', 10)
+        self.velocity_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.nav_action_client = ActionClient(self, NavigateToPose, '/navigate_to_pose')
 
         self.initiate_exploration()
 
@@ -146,6 +129,7 @@ class AutonomousExplorer(Node):
         goal_handle = future.result()
         if not goal_handle.accepted:
             self.get_logger().warn("❌ Goal rejected.")
+            self.initiate_exploration()
             return
 
         self.get_logger().info("🚀 Goal accepted. Navigating...")
@@ -165,7 +149,20 @@ class AutonomousExplorer(Node):
                 return
         else:
             self.get_logger().warn("⚠️ Failed to reach goal.")
+            if self.active_goal:
+                self.unsuccessful_goals.add((
+                    round(self.active_goal.pose.position.x, 2),
+                    round(self.active_goal.pose.position.y, 2)
+                ))
 
+        self.initiate_exploration()
+
+    def visual_servo_complete_callback(self, msg: String):
+        if msg.data == "done":
+            self.get_logger().info("🔄 Visual servoing complete. Resuming exploration.")
+        elif msg.data == "failed":
+            self.get_logger().warn("❌ Servoing failed. Resuming exploration.")
+        self.marker_target_set = False
         self.initiate_exploration()
 
     def initiate_exploration(self):
@@ -174,14 +171,18 @@ class AutonomousExplorer(Node):
             return
 
         regions = self.locate_exploration_regions()
-        if not regions:
-            self.get_logger().info("🧭 No unexplored regions currently. Retrying shortly.")
-            self.create_timer(3.0, self.initiate_exploration)
-            return
+        for region in regions:
+            pose = self.exploration_region_to_pose(region)
+            key = (
+                round(pose.pose.position.x, 2),
+                round(pose.pose.position.y, 2)
+            )
+            if key not in self.unsuccessful_goals:
+                self.transmit_goal(pose)
+                return
 
-        best_pose = self.exploration_region_to_pose(regions[0])
-        self.transmit_goal(best_pose)
-
+        self.get_logger().info("🧭 No unexplored regions currently. Retrying shortly.")
+        self.create_timer(3.0, self.initiate_exploration)
 
 def main(args=None):
     rclpy.init(args=args)
@@ -193,7 +194,6 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()
