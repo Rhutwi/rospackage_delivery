@@ -53,11 +53,11 @@ class TaskPlannerNode(Node):
         # 2️⃣ Convert the incoming stamp into an rclpy Time for comparison
         pose_time = Time.from_msg(msg.header.stamp)
 
-        # 3️⃣ Drop if the pose is too far from when we saw the ID
-        if self._last_seen_stamp is None \
-           or abs((pose_time - self._last_seen_stamp).nanoseconds) > 1e8:
-            self.get_logger().warning("⚠ Pose timestamp doesn't match latest ID, skipping")
-            return
+        # # 3️⃣ Drop if the pose is too far from when we saw the ID
+        # if self._last_seen_stamp is None \
+        #    or abs((pose_time - self._last_seen_stamp).nanoseconds) > 1e8:
+        #     self.get_logger().warning("⚠ Pose timestamp doesn't match latest ID, skipping")
+        #     return
 
         # 4️⃣ We have a matched ID + pose — pull out the values
         mid   = self.last_marker_id
@@ -90,9 +90,10 @@ class TaskPlannerNode(Node):
             dist = math.hypot(x, y)
             if len(self.pickup_queue) < self.MAX_QUEUE_SIZE:
                 delivery_id = self.marker_pairs[mid]
-                heapq.heappush(self.pickup_queue, (dist, mid, delivery_id))
+                bonus = -1.0 if delivery_id in self.delivery_pose_buffer else 0.0
+                heapq.heappush(self.pickup_queue, (dist + bonus, mid, delivery_id))
                 self.get_logger().info(
-                    f"📥 Queued Pickup {mid} → Delivery {delivery_id} (dist {dist:.2f})"
+                    f"📥 Queued Pickup {mid} → Delivery {delivery_id} (score {dist + bonus:.2f}"
                 )
                 self.try_next_task()
             else:
@@ -134,7 +135,7 @@ class TaskPlannerNode(Node):
         self.status_pub.publish(msg)
         self.get_logger().info(f"📣 Status Update: {full_status}")
 
-def main(args=None):
+def main(args=None)
     rclpy.init(args=args)
     node = TaskPlannerNode()
     try:
