@@ -1,3 +1,4 @@
+# pickup_delivery.launch.py
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
@@ -21,14 +22,13 @@ def generate_launch_description():
             executable='static_transform_publisher',
             name='base_to_pointer_tip',
             arguments=[
-                '0.185', '0.0', '0.08',
+                '0.255', '0.0', '0.08',   # ← updated to your 25.5 cm pointer
                 '0', '0', '0',
                 'base_link', 'pointer_tip'
             ],
             output='screen',
         ),
-
-        # ArUco marker detector
+        # ArUco marker detector (unchanged)
         Node(
             package='package_pickup_delivery',
             executable='aruco_detector',
@@ -46,7 +46,7 @@ def generate_launch_description():
             output='screen',
         ),
 
-        # TF Pose Transformer
+        # TF Pose Transformer (unchanged)
         Node(
             package='package_pickup_delivery',
             executable='tf_pose_transformer',
@@ -60,7 +60,7 @@ def generate_launch_description():
             output='screen',
         ),
 
-        # Task Planner
+        # Task Planner (unchanged)
         Node(
             package='package_pickup_delivery',
             executable='task_planner',
@@ -68,20 +68,28 @@ def generate_launch_description():
             output='screen',
         ),
 
-        # Visual Servo Pointer (can be updated to publish /task_planner/control if needed)
+        # Visual Servo Pointer (updated to use /aruco/map_pose & pointer length)
         Node(
             package='package_pickup_delivery',
             executable='visual_servo_pointer',
             name='visual_servo_pointer',
             parameters=[{
-                'pose_topic': '/aruco/pose',
-                'cmd_vel_topic': '/cmd_vel',
-                'xy_gain': 0.7,
-                'stop_tolerance': 0.001,
+                'pose_topic':     '/aruco/map_pose',
+                'cmd_vel_topic':  '/cmd_vel',
+                'xy_gain':        0.7,
+                'pointer_length': 0.255,
+                'stop_tolerance': 0.02,
             }],
             output='screen',
         ),
 
+        # Status Tracker Node (unchanged)
+        Node(
+            package='package_pickup_delivery',
+            executable='status_tracker_node',
+            name='status_tracker_node',
+            output='screen',
+        ),
         # Autonomous Explorer Node
         Node(
             package='package_pickup_delivery',
@@ -90,12 +98,5 @@ def generate_launch_description():
             output='screen',
         ),
 
-        # Status Tracker Node
-        Node(
-            package='package_pickup_delivery',
-            executable='status_tracker_node',
-            name='status_tracker_node',
-            output='screen',
-        ),
-
     ])
+
