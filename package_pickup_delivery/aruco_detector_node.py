@@ -4,6 +4,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'libs'))
 
+import rclpy.duration
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from rclpy.duration import Duration
@@ -116,7 +117,7 @@ class ArucoDetector(Node):
             ps = PoseStamped()
             ps.header = msg.header
             # ps.header.frame_id = 'camera_link'
-            ps.header.frame_id = 'camera_rgb_optical_frame'  # <- FIXED FRAME
+            ps.header.frame_id = 'oak_camera_rgb_camera_optical_frame'  # <- FIXED FRAME
 
 
             t = tvecs[0][0]
@@ -160,10 +161,22 @@ class ArucoDetector(Node):
             # marker.scale.x = 0.05
             # marker.scale.y = 0.05
             # marker.scale.z = 0.05
-            marker.color.r = 1.0
-            marker.color.g = 0.0
-            marker.color.b = 0.0
-            marker.color.a = 1.0
+            # marker.color.r = 1.0
+            # marker.color.g = 0.0
+            # marker.color.b = 0.0
+            # marker.color.a = 1.0
+            if marker.id % 2 == 0:
+                # Pickup: Red
+                marker.color.r = 1.0
+                marker.color.g = 0.0
+                marker.color.b = 0.0
+                marker.color.a = 1.0
+            else:
+                # Delivery: Green
+                marker.color.r = 0.0
+                marker.color.g = 1.0
+                marker.color.b = 0.0
+                marker.color.a = 1.0
             marker.lifetime = Duration(seconds=0).to_msg()  # persistent
             self.marker_pub.publish(marker)
 
