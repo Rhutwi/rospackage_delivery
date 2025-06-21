@@ -58,7 +58,8 @@ class TFPoseTransformer(Node):
             tf_stamped = self.tf_buffer.lookup_transform(
                 self.tf_target,
                 msg.header.frame_id,
-                Time()
+                rclpy.time.Time(),
+                timeout=rclpy.duration.Duration(seconds=0.5)
             )
         except (LookupException, ExtrapolationException, TransformException) as e:
             self.get_logger().warn(f"TF Lookup failed: {e}")
@@ -78,7 +79,7 @@ class TFPoseTransformer(Node):
         transformed_position = transformed_point[:3] + translation
 
         out_pose = PoseStamped()
-        out_pose.header.stamp = msg.header.stamp
+        out_pose.header.stamp = self.get_clock().now().to_msg()
         out_pose.header.frame_id = self.tf_target
         out_pose.pose.position.x = transformed_position[0]
         out_pose.pose.position.y = transformed_position[1]
